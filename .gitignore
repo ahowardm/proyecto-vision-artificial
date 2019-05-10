@@ -2,3 +2,6 @@
 .DS_Store
 .pylintrc
 *.png
+*.jpeg
+*.jpg
+images/
