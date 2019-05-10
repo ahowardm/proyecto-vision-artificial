@@ -14,6 +14,7 @@ from pyparrot.DroneVision import DroneVision
 # set this to true if you want to fly for the demo
 TEST_FLIGHT = True
 
+
 class UserVision:
     """ Vision class for Parrot Vision
     """
@@ -21,7 +22,7 @@ class UserVision:
         self.index = 0
         self.vision = vision
 
-    def save_pictures(self, args):
+    def save_pictures(self):
         """ Save pictures from Vision
         """
         print("in save pictures on image %d " % self.index)
@@ -40,7 +41,8 @@ def arguments():
         array
     """
     argument_parser = argparse.ArgumentParser()
-    argument_parser.add_argument('-a', '--address', default='d0:3a:4d:78:e6:36',
+    argument_parser.add_argument('-a', '--address',
+                                 default='d0:3a:4d:78:e6:36',
                                  help='mac address of drone')
     args = vars(argument_parser.parse_args())
     return args
@@ -64,7 +66,8 @@ def fly(address):
         print("Preparing to open vision")
         mambo_vision = DroneVision(mambo, is_bebop=False, buffer_size=30)
         user_vision = UserVision(mambo_vision)
-        mambo_vision.set_user_callback_function(user_vision.save_pictures, user_callback_args=None)
+        mambo_vision.set_user_callback_function(user_vision.save_pictures,
+                                                user_callback_args=None)
         success = mambo_vision.open_video()
         print("Success in opening vision is,", success)
 
