@@ -7,8 +7,11 @@ Author: Andres Howard, Carlos Diaz
 # import time
 import argparse
 import cv2
+
 from pyparrot.Minidrone import Mambo
 from pyparrot.DroneVision import DroneVision
+
+from instructionscanner import settings
 
 
 # set this to true if you want to fly for the demo
@@ -18,6 +21,7 @@ TEST_FLIGHT = True
 class UserVision:
     """ Vision class for Parrot Vision
     """
+
     def __init__(self, vision):
         self.index = 0
         self.vision = vision
