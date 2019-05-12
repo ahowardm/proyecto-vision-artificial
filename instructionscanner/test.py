@@ -1,6 +1,6 @@
 """ Settings file for instruction scanner
 """
-import settings
+from . import settings
 
 
 def test():
