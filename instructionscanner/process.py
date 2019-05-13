@@ -18,7 +18,6 @@ def correct_image_rotation(image):
     hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
     green_pixels = color_pixel_detection(hsv, {'lower': [(36, 25, 25),
                                                          (86, 255, 255)]})
-    cv2.namedWindow("Detection Result", cv2.WINDOW_AUTOSIZE)
     rows = green_pixels.shape[0]
     cols = green_pixels.shape[1]
     if green_pixels[0][cols-1] > 0:
@@ -30,8 +29,7 @@ def correct_image_rotation(image):
     else:
         rotated = image
 
-    cv2.imshow("Detection Result", rotated)
-    cv2.waitKey(0)
+    return rotated
 
 
 def color_pixel_detection(hsv, range_treshold_dict):
@@ -54,25 +52,26 @@ def color_pixel_detection(hsv, range_treshold_dict):
     if len(range_treshold_dict) == 2:
         result = cv2.addWeighted(result_lower, 1.0, result_upper, 1.0, 0)
 
-    result = cv2.GaussianBlur(result, (9, 9), sigmaX=2, sigmaY=2)
+    result = cv2.GaussianBlur(result, (5, 5), sigmaX=2, sigmaY=2)
 
     return result
 
 
-def find_largest_rectangle_position(edged):
+def find_largest_rectangle_position(edged, num_rectangles=1):
     """
     Find the largest rectangle on picture (aprox board)\n
     Parameters:\n
         path: edged image,\n
+        num_rectangles: Number of rectangles to find\n
     return: rectangle position vertices
     """
     # Find contours in the edged image, keep only the largest ones, and
     # initialize our screen contour
-    cnts = cv2.findContours(edged, cv2.RETR_TREE,
-                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(edged, mode=cv2.RETR_EXTERNAL,
+                            method=cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
-    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:10]
-    screen_cnt = None
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:20]
+    screen_cnt = []
     # loop over our contours
     for _c in cnts:
         # approximate the contour
@@ -81,9 +80,80 @@ def find_largest_rectangle_position(edged):
         # if our approximated contour has four points, then
         # we can assume that we have found our board
         if len(approx) == 4:
-            screen_cnt = approx
-            break
+            screen_cnt.append(approx)
+            if len(screen_cnt) == num_rectangles:
+                break
     return screen_cnt
+
+
+def find_figure(edged):
+    """
+    Determine figure on image\n
+    Parameters:\n
+        edged: edged image with figure\n
+    return: image name
+    """
+    cnts = cv2.findContours(edged, mode=cv2.RETR_EXTERNAL,
+                            method=cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:20]
+    # loop over our contours
+    for _c in cnts:
+        # approximate the contour
+        peri = cv2.arcLength(_c, True)
+        approx = cv2.approxPolyDP(_c, 0.04 * peri, True)
+        # Determine figure from vertices
+        if len(approx) == 3:
+            figure = 'TRIANGLE'
+        elif len(approx) == 4:
+            figure = 'SQUARE'
+        elif len(approx) == 5:
+            figure = 'PENTAGON'
+        elif len(approx) == 6:
+            figure = 'HEXAGON'
+        elif len(approx) == 8:
+            figure = 'TETRIS'
+        elif len(approx) == 10:
+            figure = 'STAR'
+        elif len(approx) == 12:
+            figure = 'CROSS'
+        else:
+            figure = 'CIRCLE'
+    return figure
+
+
+def find_figure_convex_hull(edged):
+    """
+    Determine figure on image\n
+    Parameters:\n
+        edged: edged image with figure\n
+    return: image name
+    """
+    cnts = cv2.findContours(edged, mode=cv2.RETR_EXTERNAL,
+                            method=cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
+    area = cv2.contourArea(cnts)
+    convex_hull = cv2.boundingRect(cnts)
+    area_ch = convex_hull[2]*convex_hull[3]
+    factor = area/area_ch
+    # Determine figure from factor
+    if 0.3 < factor <= 0.54:
+        figure = 'STAR'
+    elif 0.54 < factor <= 0.63:
+        figure = 'TRIANGLE'
+    elif 0.63 < factor <= 0.7:
+        figure = 'ARROW'
+    elif 0.7 < factor <= 0.75:
+        figure = 'PENTAGON'
+    elif 0.75 < factor <= 0.8:
+        figure = 'CICRCLE'
+    elif 0.8 < factor <= 0.88:
+        figure = 'TRAP'
+    else:
+        figure = 'SQUARE'
+
+    return figure
 
 
 def get_board_of_image(path):
@@ -105,22 +175,43 @@ def get_board_of_image(path):
     # Find edges
     edged = cv2.Canny(result, 30, 200)
     # Find potencial board vertices
-    screen_cnt = find_largest_rectangle_position(edged)
+    screen_cnt = find_largest_rectangle_position(edged)[0]
     # Get the board as image
     pts = screen_cnt.reshape(4, 2)
     rectangle = four_point_transform(img, pts)
-
     # Show image
-    # cv2.namedWindow("Detection Result", cv2.WINDOW_AUTOSIZE)
-    # cv2.imshow("Detection Result", result)
-    # cv2.namedWindow("Edged Result", cv2.WINDOW_AUTOSIZE)
-    # cv2.imshow("Edged Result", edged)
     cv2.drawContours(img, [screen_cnt], -1, (0, 255, 0), 3)
     cv2.imshow("Board Detection Result", img)
     cv2.imshow("Warped Board", rectangle)
     cv2.waitKey(0)
 
     return rectangle
+
+
+def get_figure_area(image):
+    """
+    Find figure squares\n
+    Parameters:\n
+        image: Board Image\n
+    return: Array with pts of figure squares
+    """
+    # Detect yellow squares
+    hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
+    yellow_pixels = color_pixel_detection(hsv, {'lower': [(20, 100, 100),
+                                                          (30, 255, 255)]})
+    # Find edges
+    edged = cv2.Canny(yellow_pixels, 30, 200)
+    # cv2.imshow("Test", yellow_pixels)
+    # cv2.waitKey(0)
+    # Find potencial board vertices
+    screen_cnt = find_largest_rectangle_position(edged, 12)
+    screen_cnt.sort(key=lambda x: get_contour_precedence(x, image.shape[1]))
+    figures = []
+    for _i, value in enumerate(screen_cnt):
+        screen_cnt[_i] = value.reshape(4, 2)
+        figures.append(four_point_transform(image, screen_cnt[_i]))
+        screen_cnt[_i] = order_points(screen_cnt[_i])
+    return figures
 
 
 def order_points(pts):
@@ -187,6 +278,44 @@ def four_point_transform(image, pts):
     return warp
 
 
+def get_contour_precedence(contour, cols):
+    """
+    Beatiful way to set rank for order contours on image\n
+    Source: https://stackoverflow.com\n
+    Parameters:\n
+        contour: Contours of image,\n
+        cols: Image cols\n
+    Return wrap image
+    """
+    tolerance_factor = 20
+    origin = cv2.boundingRect(contour)
+    return ((origin[1] // tolerance_factor) * tolerance_factor) * cols\
+        + origin[0]
+
+
+def get_commands(figures):
+    """
+    Get commands from figures\n
+    Parameters:\n
+        figures: Image with figures,\n
+    Return List of commands
+    """
+    figure = []
+    for fig in figures:
+        # Detect blue figure
+        hsv = cv2.cvtColor(np.uint8(fig), cv2.COLOR_BGR2HSV)
+        blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
+                                                            (140, 255, 255)]})
+        # cv2.imshow("Test", blue_pixels)
+        # cv2.waitKey(0)
+        # Determine figure
+        try:
+            figure.append(find_figure_convex_hull(blue_pixels))
+        except IndexError:
+            continue
+    return figure
+
+
 def arguments():
     """ Parse command line arguments
     Return:
@@ -194,7 +323,7 @@ def arguments():
     """
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('-p', '--path',
-                                 default='test_15.png',
+                                 default='images/test_0.jpg',
                                  help='path of picture')
     args = vars(argument_parser.parse_args())
     return args
@@ -203,4 +332,7 @@ def arguments():
 if __name__ == '__main__':
     ARGS = arguments()
     BOARD = get_board_of_image(ARGS['path'])
-    correct_image_rotation(BOARD)
+    BOARD = correct_image_rotation(BOARD)
+    FIGURES = get_figure_area(BOARD)
+    COMMANDS = get_commands(FIGURES)
+    print(COMMANDS)
