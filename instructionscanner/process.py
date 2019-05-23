@@ -16,15 +16,15 @@ def correct_image_rotation(image):
     """
 
     hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
-    green_pixels = color_pixel_detection(hsv, {'lower': [(36, 25, 25),
-                                                         (86, 255, 255)]})
-    rows = green_pixels.shape[0]
-    cols = green_pixels.shape[1]
-    if green_pixels[0][cols-1] > 0:
+    blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
+                                                        (140, 255, 255)]})             
+    rows = blue_pixels.shape[0]
+    cols = blue_pixels.shape[1]
+    if blue_pixels[0][cols-1] > 0:
         rotated = rotated = imutils.rotate_bound(image, 270)
-    elif green_pixels[rows-1][0] > 0:
+    elif blue_pixels[rows-1][0] > 0:
         rotated = rotated = imutils.rotate_bound(image, 90)
-    elif green_pixels[rows-1][cols-1] > 0:
+    elif blue_pixels[rows-1][cols-1] > 0:
         rotated = rotated = imutils.rotate_bound(image, 180)
     else:
         rotated = image
@@ -86,42 +86,6 @@ def find_largest_rectangle_position(edged, num_rectangles=1):
     return screen_cnt
 
 
-def find_figure(edged):
-    """
-    Determine figure on image\n
-    Parameters:\n
-        edged: edged image with figure\n
-    return: image name
-    """
-    cnts = cv2.findContours(edged, mode=cv2.RETR_EXTERNAL,
-                            method=cv2.CHAIN_APPROX_SIMPLE)
-    cnts = imutils.grab_contours(cnts)
-    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:20]
-    # loop over our contours
-    for _c in cnts:
-        # approximate the contour
-        peri = cv2.arcLength(_c, True)
-        approx = cv2.approxPolyDP(_c, 0.04 * peri, True)
-        # Determine figure from vertices
-        if len(approx) == 3:
-            figure = 'TRIANGLE'
-        elif len(approx) == 4:
-            figure = 'SQUARE'
-        elif len(approx) == 5:
-            figure = 'PENTAGON'
-        elif len(approx) == 6:
-            figure = 'HEXAGON'
-        elif len(approx) == 8:
-            figure = 'TETRIS'
-        elif len(approx) == 10:
-            figure = 'STAR'
-        elif len(approx) == 12:
-            figure = 'CROSS'
-        else:
-            figure = 'CIRCLE'
-    return figure
-
-
 def find_figure_convex_hull(edged):
     """
     Determine figure on image\n
@@ -140,9 +104,9 @@ def find_figure_convex_hull(edged):
     # Determine figure from factor
     if 0.3 < factor <= 0.54:
         figure = 'STAR'
-    elif 0.54 < factor <= 0.63:
+    elif 0.54 < factor <= 0.62:
         figure = 'TRIANGLE'
-    elif 0.63 < factor <= 0.7:
+    elif 0.62 < factor <= 0.7:
         figure = 'ARROW'
     elif 0.7 < factor <= 0.75:
         figure = 'PENTAGON'
@@ -153,7 +117,7 @@ def find_figure_convex_hull(edged):
     else:
         figure = 'SQUARE'
 
-    return figure
+    return figure, factor
 
 
 def get_board_of_image(path):
@@ -169,8 +133,8 @@ def get_board_of_image(path):
     # Convert image to hsv
     hsv = cv2.cvtColor(np.uint8(img), cv2.COLOR_BGR2HSV)
     # Find red pixels
-    range_treshold_dict = {'lower': [(0, 100, 100), (10, 255, 255)],
-                           'upper': [(160, 100, 100), (179, 255, 255)]}
+    range_treshold_dict = {'lower': [(0, 70, 50), (10, 255, 255)],
+                           'upper': [(170, 70, 50), (180, 255, 255)]}
     result = color_pixel_detection(hsv, range_treshold_dict)
     # Find edges
     edged = cv2.Canny(result, 30, 200)
@@ -197,12 +161,12 @@ def get_figure_area(image):
     """
     # Detect yellow squares
     hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
-    yellow_pixels = color_pixel_detection(hsv, {'lower': [(20, 100, 100),
-                                                          (30, 255, 255)]})
+    green_pixels = color_pixel_detection(hsv, {'lower': [(36, 25, 25),
+                                                         (86, 255, 255)]})
     # Find edges
-    edged = cv2.Canny(yellow_pixels, 30, 200)
-    # cv2.imshow("Test", yellow_pixels)
-    # cv2.waitKey(0)
+    edged = cv2.Canny(green_pixels, 30, 200)
+    cv2.imshow("Test", edged)
+    cv2.waitKey(0)
     # Find potencial board vertices
     screen_cnt = find_largest_rectangle_position(edged, 12)
     screen_cnt.sort(key=lambda x: get_contour_precedence(x, image.shape[1]))
@@ -306,8 +270,8 @@ def get_commands(figures):
         hsv = cv2.cvtColor(np.uint8(fig), cv2.COLOR_BGR2HSV)
         blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
                                                             (140, 255, 255)]})
-        # cv2.imshow("Test", blue_pixels)
-        # cv2.waitKey(0)
+        cv2.imshow("Test", blue_pixels)
+        cv2.waitKey(0)
         # Determine figure
         try:
             figure.append(find_figure_convex_hull(blue_pixels))
@@ -323,7 +287,7 @@ def arguments():
     """
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('-p', '--path',
-                                 default='images/test_0.jpg',
+                                 default='images/fotos-vision/pic_7.jpg',
                                  help='path of picture')
     args = vars(argument_parser.parse_args())
     return args
