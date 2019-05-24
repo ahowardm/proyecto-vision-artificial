@@ -3,10 +3,10 @@ This class implements different functions for image processing.
 """
 import argparse
 # import csv
+from pathlib import Path
 import numpy as np
 import cv2
 import imutils
-from pathlib import Path
 
 
 def correct_image_rotation(image):
