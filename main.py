@@ -127,7 +127,7 @@ def fly(address):
                 print('Success in opening vision is,', success)
 
                 time.sleep(1)
-
+                mambo_vision.close_video()
                 instructions = get_board_commands(directory)
                 print(instructions)
                 #run_instructions(mambo, instructions)
@@ -156,6 +156,7 @@ def fly(address):
 
         # mambo_vision.close_video()
         print('disconnecting')
+        
         mambo.disconnect()
 
 

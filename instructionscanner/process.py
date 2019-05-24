@@ -104,23 +104,23 @@ def find_figure_convex_hull(edged):
     area_ch = convex_hull[2]*convex_hull[3]
     factor = area/area_ch
     # Determine figure from factor
-    if 0.3 < factor <= 0.54:
+    if 0.3 < factor <= 0.545:
         figure = 'STAR'
-    elif 0.54 < factor <= 0.62:
+    elif 0.545 < factor <= 0.62:
         figure = 'TRIANGLE'
     elif 0.62 < factor <= 0.69:
         figure = 'ARROW'
-    elif 0.69 < factor <= 0.75:
+    elif 0.69 < factor <= 0.765:
         figure = 'PENTAGON'
-    elif 0.75 < factor <= 0.8:
+    elif 0.765 < factor <= 0.8:
         figure = 'CICRCLE'
     elif 0.8 < factor <= 0.87:
         figure = 'TRAP'
     else:
         figure = 'SQUARE'
 
-    # return figure, factor
-    return figure
+    return figure, factor
+    #return figure
 
 
 def get_board_of_image(path):
@@ -312,20 +312,24 @@ def get_board_commands(path):
     """
     commands_dic = {}
     max_len = 0
-    images = list(Path(path).glob('*.jpg'))
+    images = list(Path(path).glob('*.png'))
     for img in images:
         board = get_board_of_image(str(img))
-        rotated = correct_image_rotation(board)
-        figures = get_figure_area(rotated)
-        commands = tuple(get_commands(figures))
-        if len(commands) >= max_len:
-            max_len = len(commands)
-            if commands not in commands_dic:
-                commands_dic[commands] = 1
-            else:
-                commands_dic[commands] += 1
+        if board is not None:
+            rotated = correct_image_rotation(board)
+            figures = get_figure_area(rotated)
+            commands = tuple(get_commands(figures))
+            if len(commands) >= max_len:
+                max_len = len(commands)
+                if commands not in commands_dic:
+                    commands_dic[commands] = 1
+                else:
+                    commands_dic[commands] += 1
     commands_dic = {k: v for k, v in commands_dic.items() if len(k) == max_len}
-    commands = max(commands_dic, key=commands_dic.get)
+    if max_len > 0:
+        commands = max(commands_dic, key=commands_dic.get)
+    else:
+        commands = []
     return commands
 
 
