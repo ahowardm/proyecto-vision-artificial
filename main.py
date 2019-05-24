@@ -6,13 +6,16 @@ Author: Andres Howard, Carlos Diaz
 # import threading
 # import time
 import argparse
+import os
 import cv2
+import inspect
+import time
 
 from pyparrot.Minidrone import Mambo
 from pyparrot.DroneVision import DroneVision
 
 from instructionscanner import settings
-from instructionscanner import test
+from instructionscanner.process import get_board_commands
 
 
 # set this to true if you want to fly for the demo
@@ -26,7 +29,6 @@ class UserVision:
     def __init__(self, vision):
         self.index = 0
         self.vision = vision
-        self.instructions = []
 
     def save_pictures(self):
         """ Save pictures from Vision
@@ -34,8 +36,6 @@ class UserVision:
         print('in save pictures on image %d ' % self.index)
 
         img = self.vision.get_latest_valid_picture()
-        if self.index > 1:
-            return
 
         if img is not None:
             filename = 'mambo_image_%06d.png' % self.index
@@ -46,7 +46,7 @@ class UserVision:
         """ Calls save_pictures and XXX function from instruction scanner
         """
         self.save_pictures()
-        self.close_video()
+        #self.close_video()
         self.instructions = test.test()
         print(self.instructions)
 
@@ -91,9 +91,6 @@ def run_instructions(mambo, instructions):
             print('going backward')
             mambo.fly_direct(roll=0, pitch=-50, yaw=0,
                              vertical_movement=0, duration=2)
-        elif instruction == settings.LAND:
-            print('landing')
-            mambo.safe_land(5)
 
 
 def fly(address):
@@ -118,26 +115,32 @@ def fly(address):
                 print('taking off')
                 mambo.safe_takeoff(5)
 
-                while True:
-                    print('Preparing to open vision')
-                    mambo_vision = DroneVision(
-                        mambo, is_bebop=False, buffer_size=30)
-                    user_vision = UserVision(mambo_vision)
-                    mambo_vision.set_user_callback_function(user_vision.get_frame,
-                                                            user_callback_args=None)
-                    success = mambo_vision.open_video()
-                    print('Success in opening vision is,', success)
+                print('Preparing to open vision')
+                mambo_vision = DroneVision(
+                    mambo, is_bebop=False, buffer_size=30)
+                user_vision = UserVision(mambo_vision)
+                mambo_vision.set_user_callback_function(user_vision.get_frame,
+                                                        user_callback_args=None)
+                directory = os.path.join(os.path.dirname(inspect.getfile(DroneVision)), 'images')
+                print('Las fotos están en:', directory)
+                success = mambo_vision.open_video()
+                print('Success in opening vision is,', success)
 
-                    if user_vision.instructions and user_vision.instructions != 'ERROR':
-                        try:
-                            print('Ending the sleep and vision')
-                            mambo_vision.close_video()
-                            run_instructions(mambo, user_vision.instructions)
-                            break
-                        except Exception as ex:
-                            print(ex)
-                            print('landing')
-                            mambo.safe_land(5)
+                time.sleep(1)
+
+                instructions = get_board_commands(directory)
+                print(instructions)
+                #run_instructions(mambo, instructions)
+
+                #if user_vision.instructions and user_vision.instructions != 'ERROR':
+                #    try:
+                #        print('Ending the sleep and vision')
+                #        mambo_vision.close_video()
+                #        run_instructions(mambo, user_vision.instructions)
+                #    except Exception as ex:
+                #        print(ex)
+                #        print('landing')
+                #        mambo.safe_land(5)
 
                 if mambo.sensors.flying_state != 'emergency':
                     print('flying state is ', mambo.sensors.flying_state)
@@ -151,6 +154,7 @@ def fly(address):
 
             mambo.smart_sleep(5)
 
+        # mambo_vision.close_video()
         print('disconnecting')
         mambo.disconnect()
 
