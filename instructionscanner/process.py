@@ -2,6 +2,7 @@
 This class implements different functions for image processing.
 """
 import argparse
+# import csv
 import numpy as np
 import cv2
 import imutils
@@ -17,7 +18,8 @@ def correct_image_rotation(image):
 
     hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
     blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
-                                                        (140, 255, 255)]})             
+                                                        (140, 255, 255)]})
+    blue_pixels = cv2.GaussianBlur(blue_pixels, (5, 5), sigmaX=2, sigmaY=2)
     rows = blue_pixels.shape[0]
     cols = blue_pixels.shape[1]
     if blue_pixels[0][cols-1] > 0:
@@ -28,7 +30,6 @@ def correct_image_rotation(image):
         rotated = rotated = imutils.rotate_bound(image, 180)
     else:
         rotated = image
-
     return rotated
 
 
@@ -106,18 +107,19 @@ def find_figure_convex_hull(edged):
         figure = 'STAR'
     elif 0.54 < factor <= 0.62:
         figure = 'TRIANGLE'
-    elif 0.62 < factor <= 0.7:
+    elif 0.62 < factor <= 0.69:
         figure = 'ARROW'
-    elif 0.7 < factor <= 0.75:
+    elif 0.69 < factor <= 0.75:
         figure = 'PENTAGON'
     elif 0.75 < factor <= 0.8:
         figure = 'CICRCLE'
-    elif 0.8 < factor <= 0.88:
+    elif 0.8 < factor <= 0.87:
         figure = 'TRAP'
     else:
         figure = 'SQUARE'
 
-    return figure, factor
+    # return figure, factor
+    return figure
 
 
 def get_board_of_image(path):
@@ -128,6 +130,7 @@ def get_board_of_image(path):
     return: board as image
     """
     img = cv2.imread(path)
+    # img = path
     # Filter noise
     img = cv2.medianBlur(img, 3)
     # Convert image to hsv
@@ -139,16 +142,22 @@ def get_board_of_image(path):
     # Find edges
     edged = cv2.Canny(result, 30, 200)
     # Find potencial board vertices
-    screen_cnt = find_largest_rectangle_position(edged)[0]
-    # Get the board as image
-    pts = screen_cnt.reshape(4, 2)
-    rectangle = four_point_transform(img, pts)
-    # Show image
-    cv2.drawContours(img, [screen_cnt], -1, (0, 255, 0), 3)
-    cv2.imshow("Board Detection Result", img)
-    cv2.imshow("Warped Board", rectangle)
-    cv2.waitKey(0)
+    try:
+        screen_cnt = find_largest_rectangle_position(edged)[0]
+        # Get the board as image
+        pts = screen_cnt.reshape(4, 2)
+        rectangle = four_point_transform(img, pts)
+    except IndexError:
+        screen_cnt = None
+        rectangle = None
 
+    # Show image
+    # cv2.drawContours(img, [screen_cnt], -1, (0, 255, 0), 3)
+    # cv2.imshow("Board Detection Result", img)
+    # cv2.imshow("Warped Board", rectangle)
+    # cv2.waitKey(0)
+
+    # return rectangle, screen_cnt
     return rectangle
 
 
@@ -165,8 +174,8 @@ def get_figure_area(image):
                                                          (86, 255, 255)]})
     # Find edges
     edged = cv2.Canny(green_pixels, 30, 200)
-    cv2.imshow("Test", edged)
-    cv2.waitKey(0)
+    # cv2.imshow("Test", edged)
+    # cv2.waitKey(0)
     # Find potencial board vertices
     screen_cnt = find_largest_rectangle_position(edged, 12)
     screen_cnt.sort(key=lambda x: get_contour_precedence(x, image.shape[1]))
@@ -251,7 +260,7 @@ def get_contour_precedence(contour, cols):
         cols: Image cols\n
     Return wrap image
     """
-    tolerance_factor = 20
+    tolerance_factor = 50
     origin = cv2.boundingRect(contour)
     return ((origin[1] // tolerance_factor) * tolerance_factor) * cols\
         + origin[0]
@@ -270,8 +279,8 @@ def get_commands(figures):
         hsv = cv2.cvtColor(np.uint8(fig), cv2.COLOR_BGR2HSV)
         blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
                                                             (140, 255, 255)]})
-        cv2.imshow("Test", blue_pixels)
-        cv2.waitKey(0)
+        # cv2.imshow("Test", blue_pixels)
+        # cv2.waitKey(0)
         # Determine figure
         try:
             figure.append(find_figure_convex_hull(blue_pixels))
@@ -287,14 +296,44 @@ def arguments():
     """
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('-p', '--path',
-                                 default='images/fotos-vision/pic_7.jpg',
+                                 default='images/fotos-vision/pic_11.jpg',
                                  help='path of picture')
     args = vars(argument_parser.parse_args())
     return args
 
 
+def get_board_commands(path):
+    board = get_board_of_image(path)
+    rotated = correct_image_rotation(board)
+    figures = get_figure_area(rotated)
+    return get_commands(figures)
+
 if __name__ == '__main__':
     ARGS = arguments()
+    # csvData = []
+    # CAP = cv2.VideoCapture(ARGS['path'])
+    # while True:
+    #     RET, FRAME = CAP.read()
+    #     if not RET:
+    #         break
+    #     BOARD, SCREEN_CNT = get_board_of_image(FRAME)
+    #     if BOARD is not None or SCREEN_CNT is not None:
+    #         ROTATED = correct_image_rotation(BOARD)
+    #         cv2.drawContours(FRAME, [SCREEN_CNT], -1, (0, 255, 0), 10)
+    #         cv2.imshow("Board Detection Result", FRAME)
+    #         FIGURES = get_figure_area(ROTATED)
+    #         COMMANDS = get_commands(FIGURES)
+    #         csvData.append(COMMANDS)
+    #         print(COMMANDS)
+    #     else:
+    #         cv2.imshow("Board Detection Result", FRAME)
+    #     cv2.waitKey(1)
+    # CAP.release()
+    # with open('result.csv', 'w') as csvFile:
+    #     writer = csv.writer(csvFile)
+    #     writer.writerows(csvData)
+
+    # csvFile.close()
     BOARD = get_board_of_image(ARGS['path'])
     BOARD = correct_image_rotation(BOARD)
     FIGURES = get_figure_area(BOARD)
