@@ -307,7 +307,7 @@ def get_board_commands(path):
     """
     Get commands for drone\n
     Parameters:\n
-        path: Image path,\n
+        path: Images folder path,\n
     Return List of commands
     """
     commands_dic = {}
@@ -356,9 +356,4 @@ if __name__ == '__main__':
 
     # csvFile.close()
 
-    # BOARD = get_board_of_image(ARGS['path'])
-    # BOARD = correct_image_rotation(BOARD)
-    # FIGURES = get_figure_area(BOARD)
-    # COMMANDS = get_commands(FIGURES)
-    # print(COMMANDS)
-    get_board_commands(ARGS['path'])
+    print(get_board_commands(ARGS['path']))
