@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import cv2
 import imutils
+from pathlib import Path
 
 
 def correct_image_rotation(image):
@@ -296,17 +297,37 @@ def arguments():
     """
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('-p', '--path',
-                                 default='images/fotos-vision/pic_11.jpg',
+                                 default='images/fotos-vision',
                                  help='path of picture')
     args = vars(argument_parser.parse_args())
     return args
 
 
 def get_board_commands(path):
-    board = get_board_of_image(path)
-    rotated = correct_image_rotation(board)
-    figures = get_figure_area(rotated)
-    return get_commands(figures)
+    """
+    Get commands for drone\n
+    Parameters:\n
+        path: Image path,\n
+    Return List of commands
+    """
+    commands_dic = {}
+    max_len = 0
+    images = list(Path(path).glob('*.jpg'))
+    for img in images:
+        board = get_board_of_image(str(img))
+        rotated = correct_image_rotation(board)
+        figures = get_figure_area(rotated)
+        commands = tuple(get_commands(figures))
+        if len(commands) >= max_len:
+            max_len = len(commands)
+            if commands not in commands_dic:
+                commands_dic[commands] = 1
+            else:
+                commands_dic[commands] += 1
+    commands_dic = {k: v for k, v in commands_dic.items() if len(k) == max_len}
+    commands = max(commands_dic, key=commands_dic.get)
+    return commands
+
 
 if __name__ == '__main__':
     ARGS = arguments()
@@ -334,8 +355,10 @@ if __name__ == '__main__':
     #     writer.writerows(csvData)
 
     # csvFile.close()
-    BOARD = get_board_of_image(ARGS['path'])
-    BOARD = correct_image_rotation(BOARD)
-    FIGURES = get_figure_area(BOARD)
-    COMMANDS = get_commands(FIGURES)
-    print(COMMANDS)
+
+    # BOARD = get_board_of_image(ARGS['path'])
+    # BOARD = correct_image_rotation(BOARD)
+    # FIGURES = get_figure_area(BOARD)
+    # COMMANDS = get_commands(FIGURES)
+    # print(COMMANDS)
+    get_board_commands(ARGS['path'])
