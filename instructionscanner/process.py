@@ -7,6 +7,54 @@ from pathlib import Path
 import numpy as np
 import cv2
 import imutils
+import math
+
+
+def apply_mask(matrix, mask, fill_value):
+    masked = np.ma.array(matrix, mask=mask, fill_value=fill_value)
+    return masked.filled()
+
+def apply_threshold(matrix, low_value, high_value):
+    low_mask = matrix < low_value
+    matrix = apply_mask(matrix, low_mask, low_value)
+
+    high_mask = matrix > high_value
+    matrix = apply_mask(matrix, high_mask, high_value)
+
+    return matrix
+
+def simplest_cb(img, percent):
+    assert img.shape[2] == 3
+    assert percent > 0 and percent < 100
+
+    half_percent = percent / 200.0
+
+    channels = cv2.split(img)
+
+    out_channels = []
+    for channel in channels:
+        assert len(channel.shape) == 2
+        height, width = channel.shape
+        vec_size = width * height
+        flat = channel.reshape(vec_size)
+
+        assert len(flat.shape) == 1
+
+        flat = np.sort(flat)
+
+        n_cols = flat.shape[0]
+
+        low_val  = flat[math.floor(n_cols * half_percent)]
+        high_val = flat[math.ceil( n_cols * (1.0 - half_percent))]
+
+
+        # saturate below the low percentile and above the high percentile
+        thresholded = apply_threshold(channel, low_val, high_val)
+        # scale the channel
+        normalized = cv2.normalize(thresholded, thresholded.copy(), 0, 255, cv2.NORM_MINMAX)
+        out_channels.append(normalized)
+
+    return cv2.merge(out_channels)
 
 
 def correct_image_rotation(image):
@@ -21,6 +69,8 @@ def correct_image_rotation(image):
     blue_pixels = color_pixel_detection(hsv, {'lower': [(100, 50, 0),
                                                         (140, 255, 255)]})
     blue_pixels = cv2.GaussianBlur(blue_pixels, (5, 5), sigmaX=2, sigmaY=2)
+    # cv2.imshow("Test", green_pixels)
+    # cv2.waitKey(0)
     rows = blue_pixels.shape[0]
     cols = blue_pixels.shape[1]
     if blue_pixels[0][cols-1] > 0:
@@ -54,8 +104,10 @@ def color_pixel_detection(hsv, range_treshold_dict):
     if len(range_treshold_dict) == 2:
         result = cv2.addWeighted(result_lower, 1.0, result_upper, 1.0, 0)
 
-    result = cv2.GaussianBlur(result, (5, 5), sigmaX=2, sigmaY=2)
-
+    result = cv2.GaussianBlur(result, (5, 5), 0)
+    # cv2.imshow("Color Filter", result)
+    # cv2.waitKey(0)
+    # result = cv2.medianBlur(result, 5)
     return result
 
 
@@ -104,23 +156,21 @@ def find_figure_convex_hull(edged):
     area_ch = convex_hull[2]*convex_hull[3]
     factor = area/area_ch
     # Determine figure from factor
-    if 0.3 < factor <= 0.545:
+    if factor <= 0.62:
         figure = 'STAR'
-    elif 0.545 < factor <= 0.62:
-        figure = 'TRIANGLE'
-    elif 0.62 < factor <= 0.69:
+    elif 0.62 < factor <= 0.7:
         figure = 'ARROW'
-    elif 0.69 < factor <= 0.765:
+    elif 0.7 < factor <= 0.765:
         figure = 'PENTAGON'
     elif 0.765 < factor <= 0.8:
-        figure = 'CICRCLE'
+        figure = 'CIRCLE'
     elif 0.8 < factor <= 0.87:
         figure = 'TRAP'
     else:
         figure = 'SQUARE'
 
-    return figure, factor
-    #return figure
+    # return figure, factor
+    return figure
 
 
 def get_board_of_image(path):
@@ -131,6 +181,10 @@ def get_board_of_image(path):
     return: board as image
     """
     img = cv2.imread(path)
+    # cv2.imshow('Original', img)
+    img = simplest_cb(img, 50)
+    # cv2.imshow('Test', img)
+    # cv2.waitKey(0)
     # img = path
     # Filter noise
     img = cv2.medianBlur(img, 3)
@@ -171,14 +225,14 @@ def get_figure_area(image):
     """
     # Detect yellow squares
     hsv = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
-    green_pixels = color_pixel_detection(hsv, {'lower': [(36, 25, 25),
+    green_pixels = color_pixel_detection(hsv, {'lower': [(36, 0, 0),
                                                          (86, 255, 255)]})
     # Find edges
-    edged = cv2.Canny(green_pixels, 30, 200)
-    # cv2.imshow("Test", edged)
+    # edged = cv2.Canny(green_pixels, 30, 200)
+    # cv2.imshow("Test", green_pixels)
     # cv2.waitKey(0)
     # Find potencial board vertices
-    screen_cnt = find_largest_rectangle_position(edged, 12)
+    screen_cnt = find_largest_rectangle_position(green_pixels, 12)
     screen_cnt.sort(key=lambda x: get_contour_precedence(x, image.shape[1]))
     figures = []
     for _i, value in enumerate(screen_cnt):
@@ -261,7 +315,7 @@ def get_contour_precedence(contour, cols):
         cols: Image cols\n
     Return wrap image
     """
-    tolerance_factor = 50
+    tolerance_factor = 20
     origin = cv2.boundingRect(contour)
     return ((origin[1] // tolerance_factor) * tolerance_factor) * cols\
         + origin[0]
@@ -297,7 +351,7 @@ def arguments():
     """
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('-p', '--path',
-                                 default='images/fotos-vision',
+                                 default="C:\\Users\\cardi\\AppData\\Local\\Packages\\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\\LocalState\\rootfs\\home\\carlos\\anaconda3\\envs\\visionArtificialEnv\\lib\\python3.7\\site-packages\\pyparrot\\images",
                                  help='path of picture')
     args = vars(argument_parser.parse_args())
     return args
@@ -326,6 +380,7 @@ def get_board_commands(path):
                 else:
                     commands_dic[commands] += 1
     commands_dic = {k: v for k, v in commands_dic.items() if len(k) == max_len}
+    print(commands_dic)
     if max_len > 0:
         commands = max(commands_dic, key=commands_dic.get)
     else:
@@ -335,7 +390,6 @@ def get_board_commands(path):
 
 if __name__ == '__main__':
     ARGS = arguments()
-    # csvData = []
     # CAP = cv2.VideoCapture(ARGS['path'])
     # while True:
     #     RET, FRAME = CAP.read()
@@ -348,16 +402,10 @@ if __name__ == '__main__':
     #         cv2.imshow("Board Detection Result", FRAME)
     #         FIGURES = get_figure_area(ROTATED)
     #         COMMANDS = get_commands(FIGURES)
-    #         csvData.append(COMMANDS)
     #         print(COMMANDS)
     #     else:
     #         cv2.imshow("Board Detection Result", FRAME)
     #     cv2.waitKey(1)
     # CAP.release()
-    # with open('result.csv', 'w') as csvFile:
-    #     writer = csv.writer(csvFile)
-    #     writer.writerows(csvData)
 
-    # csvFile.close()
-
-    print(get_board_commands(ARGS['path']))
+    print('\n Selected:', get_board_commands(ARGS['path']))

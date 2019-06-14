@@ -68,29 +68,34 @@ def run_instructions(mambo, instructions):
     """ Run instructions from instruction scanner
     """
     assert isinstance(mambo, Mambo), 'Mambo must be a Mambo instance'
-    assert isinstance(instructions, list), 'Instructions must be a string'
+    assert isinstance(instructions, tuple), 'Instructions must be a string'
+    print('setting position')
+    mambo.turn_degrees(180)
     print('running instructions')
     for instruction in instructions:
         if instruction == settings.GO_UP:
             print('going up')
             mambo.fly_direct(roll=0, pitch=0, yaw=0,
-                             vertical_movement=40, duration=2)
+                             vertical_movement=40, duration=0.5)
         elif instruction == settings.TURN_LEFT:
             print('turning left')
             mambo.turn_degrees(-90)
         elif instruction == settings.TURN_RIGHT:
             print('turning right')
             mambo.turn_degrees(90)
-        elif instruction == settings.BACKFLIP:
-            mambo.flip(direction='back')
+        elif instruction == settings.GO_DOWN:
+            print('going down')
+            mambo.fly_direct(roll=0, pitch=0, yaw=0,
+                             vertical_movement=-40, duration=0.5)
         elif instruction == settings.GO_FORWARD:
             print('going forward')
             mambo.fly_direct(roll=0, pitch=50, yaw=0,
-                             vertical_movement=0, duration=2)
+                             vertical_movement=0, duration=0.5)
         elif instruction == settings.GO_BACKWARD:
             print('going backward')
             mambo.fly_direct(roll=0, pitch=-50, yaw=0,
-                             vertical_movement=0, duration=2)
+                             vertical_movement=0, duration=0.5)
+        time.sleep(1)
 
 
 def fly(address):
@@ -120,8 +125,11 @@ def fly(address):
                     mambo, is_bebop=False, buffer_size=30)
                 user_vision = UserVision(mambo_vision)
                 mambo_vision.set_user_callback_function(user_vision.get_frame,
-                                                        user_callback_args=None)
-                directory = os.path.join(os.path.dirname(inspect.getfile(DroneVision)), 'images')
+                                                        user_callback_args=None
+                                                        )
+                directory = os.path.join(os.path.dirname(
+                                        inspect.getfile(DroneVision)),
+                                         'images')
                 print('Las fotos están en:', directory)
                 success = mambo_vision.open_video()
                 print('Success in opening vision is,', success)
@@ -129,8 +137,8 @@ def fly(address):
                 time.sleep(1)
                 mambo_vision.close_video()
                 instructions = get_board_commands(directory)
-                print(instructions)
-                #run_instructions(mambo, instructions)
+                print('Las intrucciones son:', instructions)
+                run_instructions(mambo, instructions)
 
                 #if user_vision.instructions and user_vision.instructions != 'ERROR':
                 #    try:
@@ -153,10 +161,7 @@ def fly(address):
                 mambo.smart_sleep(15)
 
             mambo.smart_sleep(5)
-
-        # mambo_vision.close_video()
         print('disconnecting')
-        
         mambo.disconnect()
 
 
