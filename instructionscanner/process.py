@@ -2,13 +2,13 @@
 This class implements different functions for image processing.
 """
 import argparse
-# import csv
 from pathlib import Path
 import numpy as np
 import cv2
 import imutils
 import math
 
+WHITE_BALANCE = 60
 
 def apply_mask(matrix, mask, fill_value):
     masked = np.ma.array(matrix, mask=mask, fill_value=fill_value)
@@ -155,6 +155,7 @@ def find_figure_convex_hull(edged):
     convex_hull = cv2.boundingRect(cnts)
     area_ch = convex_hull[2]*convex_hull[3]
     factor = area/area_ch
+    figure = []
     # Determine figure from factor
     if factor <= 0.62:
         figure = 'STAR'
@@ -166,7 +167,7 @@ def find_figure_convex_hull(edged):
         figure = 'CIRCLE'
     elif 0.8 < factor <= 0.87:
         figure = 'TRAP'
-    else:
+    elif figure > 0.87:
         figure = 'SQUARE'
 
     # return figure, factor
@@ -182,7 +183,7 @@ def get_board_of_image(path):
     """
     img = cv2.imread(path)
     # cv2.imshow('Original', img)
-    img = simplest_cb(img, 50)
+    img = simplest_cb(img, WHITE_BALANCE)
     # cv2.imshow('Test', img)
     # cv2.waitKey(0)
     # img = path

@@ -68,7 +68,10 @@ def run_instructions(mambo, instructions):
     """ Run instructions from instruction scanner
     """
     assert isinstance(mambo, Mambo), 'Mambo must be a Mambo instance'
-    assert isinstance(instructions, tuple), 'Instructions must be a string'
+    #assert isinstance(instructions, tuple), 'Instructions must be a string'
+    if len(instructions) == 0:
+        print('No instructions read1')
+        return
     print('setting position')
     mambo.turn_degrees(180)
     print('running instructions')
